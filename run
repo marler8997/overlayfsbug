@@ -1,0 +1,33 @@
+#!/bin/bash
+set -e
+
+if [ "$1" == "pass" ]; then
+    MOUNT_PREFIX="sudo"
+elif [ "$1" == "fail" ]; then
+    MOUNT_PREFIX=""
+else
+    echo "Usage: ./run pass|fail"
+    exit 1
+fi
+
+set -x
+CC=${CC:-gcc}
+
+# build mini mount program so we can run mount as non-root user
+$CC -o mount mount.c
+sudo setcap cap_sys_admin+ep mount
+
+# clean before starting a new run
+./clean
+
+mkdir dirs
+mkdir dirs/lower dirs/upper dirs/work dirs/overlay
+mkdir dirs/lower/lower_subdir dirs/upper/upper_subdir
+$MOUNT_PREFIX ./mount -t overlay -o lowerdir=dirs/lower,upperdir=dirs/upper,workdir=dirs/work none dirs/overlay
+
+# works
+touch dirs/overlay/a
+# works
+touch dirs/overlay/upper_subdir/a
+# works only if mount was done with sudo, permission denied if it wasn't
+touch dirs/overlay/lower_subdir/a
